@@ -8,9 +8,12 @@ import com.microservices.user.service.exceptions.ResourceNotFoundException;
 import com.microservices.user.service.repositories.UserRepository;
 import com.microservices.user.service.services.UserService;
 import jakarta.annotation.PostConstruct;
+import org.springframework.kafka.annotation.DltHandler;
+import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -118,7 +121,7 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("Failed to get user with rating", e);
         }
     }
-
+@RetryableTopic(attempts = "3", backoff = @Backoff(delay = 5000, multiplier = 2))
     @KafkaListener(topics = "rating-user-topic", groupId = "user-group")
     public void handleRatingMessage(String ratingsJson) {
         try {
@@ -139,5 +142,10 @@ public class UserServiceImpl implements UserService {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+     @DltHandler
+    public void handleDltMessage(String ratingsJson) {
+        // Handle the message that could not be processed after retries
+        System.err.println("Message sent to DLT: " + ratingsJson);
     }
 }
